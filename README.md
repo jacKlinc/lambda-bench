@@ -6,6 +6,16 @@
 
 Benchmarks AWS Lambda cold and warm start performance across memory tiers and runtimes (Python vs Go). Produces percentile stats, cost-proxy calculations, and publication-ready plots.
 
+> [!NOTE]
+> **AI Transparency Disclosure:** This project utilizes AI coding assistants to generate boilerplates, optimize benchmarks, and refine documentation. All critical logic and performance calculations are human-reviewed and verified.
+
+## Example output
+
+![Cold start breakdown](examples/go-vs-python/results/plots/cold_start_breakdown.png)
+
+Full example run → [examples/go-vs-python/](examples/go-vs-python/)
+
+
 ## Install
 
 ```bash

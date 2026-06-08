@@ -1,0 +1,14 @@
+[
+    {
+        "label": "Python 512MB",
+        "function_name": "ComputeStack-pythonhandler512mbloop4C111776-UTtSNGcRUyqf",
+        "memory_mb": 512,
+        "variant": "python"
+    },
+    {
+        "label": "Go 512MB",
+        "function_name": "ComputeStack-gohandler512mbdem28D47C91-wiAPoTaRQ7FJ",
+        "memory_mb": 512,
+        "variant": "go"
+    }
+]
