@@ -62,9 +62,9 @@ def invoke(
             is_oom = False
             if function_error:
                 try:
-                    payload = json.loads(response["Payload"].read())
-                    error_type = payload.get("errorType", "")
-                    error_msg = payload.get("errorMessage", "")
+                    error_payload = json.loads(response["Payload"].read())
+                    error_type = error_payload.get("errorType", "")
+                    error_msg = error_payload.get("errorMessage", "")
                     is_oom = (
                         "Runtime.ExitError" in error_type
                         or "signal: killed" in error_msg

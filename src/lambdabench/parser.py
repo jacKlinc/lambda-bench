@@ -29,7 +29,7 @@ class Report:
 def parse_report(log: str) -> Report | None:
     if len(log) >= LOG_TRUNCATION_LIMIT:
         logger.debug(
-            "Log is %d chars (>= %d); Lambda Tail returns the last 4 KB so REPORT is still present.",
+            "Log is %d chars (>= %d); Lambda Tail returns last 4 KB so REPORT is still present.",
             len(log),
             LOG_TRUNCATION_LIMIT,
         )

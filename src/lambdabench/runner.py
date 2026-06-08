@@ -65,7 +65,7 @@ def set_bench_version(
     client: Any,
     function_name: str,
     version: str,
-) -> Generator[None, None, None]:
+) -> Generator[None]:
     """Set BENCH_VERSION env var and wait until active; always reset on exit."""
 
     def _patch_env(val: str) -> None:
@@ -157,7 +157,9 @@ def run_warm(
 def set_memory(client: Any, function_name: str, memory_mb: int) -> None:
     """Update function memory size and wait until the update is active."""
     _retry_on_conflict(
-        lambda: client.update_function_configuration(FunctionName=function_name, MemorySize=memory_mb)
+        lambda: client.update_function_configuration(
+            FunctionName=function_name, MemorySize=memory_mb
+        )
     )
     _wait_until_active(client, function_name)
 

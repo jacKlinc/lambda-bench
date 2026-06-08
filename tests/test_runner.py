@@ -1,15 +1,19 @@
-import base64
 from unittest.mock import MagicMock, call, patch
 
+import botocore.exceptions
 import pytest
 
 from lambdabench.config import LambdaFn
 from lambdabench.invoker import InvokeResult
-import botocore.exceptions
-
-from lambdabench.runner import _check_result, _wait_until_active, run_cold, run_warm, set_bench_version, set_memory
-from tests.fixtures.sample_logs import COLD_START, WARM_EXEC
-
+from lambdabench.runner import (
+    _check_result,
+    _wait_until_active,
+    run_cold,
+    run_warm,
+    set_bench_version,
+    set_memory,
+)
+from tests.fixtures.sample_logs import WARM_EXEC
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -258,7 +262,10 @@ def test_run_cold_skips_partial_failures_and_returns_successes():
     fn = _make_fn()
     with (
         patch("lambdabench.runner.set_bench_version"),
-        patch("lambdabench.runner.invoke", side_effect=[_oom_result(), _ok_result(), _oom_result()]),
+        patch(
+            "lambdabench.runner.invoke",
+            side_effect=[_oom_result(), _ok_result(), _oom_result()],
+        ),
     ):
         reports = run_cold(MagicMock(), fn, n=3)
     assert len(reports) == 1

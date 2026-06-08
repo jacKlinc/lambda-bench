@@ -5,8 +5,7 @@ from unittest.mock import MagicMock, call, patch
 import botocore.exceptions
 import pytest
 
-from lambdabench.invoker import InvokeResult, _BASE_DELAY, _MAX_RETRIES, invoke
-
+from lambdabench.invoker import _BASE_DELAY, _MAX_RETRIES, InvokeResult, invoke
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -1,7 +1,5 @@
 import os
 
-import pytest
-
 os.environ.setdefault("MPLBACKEND", "Agg")
 
 from lambdabench.config import LambdaFn
@@ -16,12 +14,13 @@ from lambdabench.plot import (
 )
 from lambdabench.runner import FnResult
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
-def _rep(duration: float, billed: int, memory: int, max_mem: int, init: float | None = None) -> Report:
+def _rep(
+    duration: float, billed: int, memory: int, max_mem: int, init: float | None = None
+) -> Report:
     return Report(
         request_id="t",
         duration_ms=duration,

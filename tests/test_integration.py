@@ -80,7 +80,9 @@ class TestInvoker:
     def test_invoke_returns_invocation_result(self, client, first_fn):
         result = invoke(client, first_fn.function_name)
         assert result.log, "Expected non-empty log"
-        assert result.function_error is None, f"FunctionError: {result.function_error}\n{result.log}"
+        assert result.function_error is None, (
+            f"FunctionError: {result.function_error}\n{result.log}"
+        )
         assert result.is_oom is False
 
     def test_invoke_log_contains_report_line(self, client, first_fn):

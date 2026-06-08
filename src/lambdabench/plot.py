@@ -4,6 +4,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import matplotlib
+
 if not os.environ.get("MPLBACKEND"):
     matplotlib.use("Agg")
 import matplotlib.pyplot as plt

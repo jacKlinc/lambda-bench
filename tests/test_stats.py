@@ -1,8 +1,14 @@
 import pytest
 
 from lambdabench.parser import Report
-from lambdabench.stats import GB_SECOND_PRICE, FieldStats, Summary, cost_proxy, percentile, summarise
-
+from lambdabench.stats import (
+    GB_SECOND_PRICE,
+    FieldStats,
+    Summary,
+    cost_proxy,
+    percentile,
+    summarise,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers

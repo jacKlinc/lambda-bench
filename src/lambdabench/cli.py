@@ -1,9 +1,8 @@
 import json
 import logging
 import re
-import sys
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Any
 
 import boto3
 import botocore.exceptions
@@ -15,7 +14,7 @@ from rich.table import Table
 from lambdabench.config import DEFAULT_COLD_ITERS, DEFAULT_WARM_ITERS, LambdaFn
 from lambdabench.export import load_results_json, save_csv, save_results_json
 from lambdabench.plot import plot_all
-from lambdabench.runner import FnResult, run_cold, run_warm, set_memory
+from lambdabench.runner import FnResult, run_cold, run_warm
 from lambdabench.stats import summarise
 
 app = typer.Typer(pretty_exceptions_show_locals=False, add_completion=False)
@@ -38,7 +37,6 @@ def _iam_guard(exc: botocore.exceptions.ClientError) -> None:
 @app.command()
 def run(
     config: Annotated[Path, typer.Option("--config", help="JSON file listing function configs")],
-    memory: Annotated[Optional[list[int]], typer.Option("--memory", help="Memory sizes to sweep (MB). Defaults to memory_mb in config if present.")] = None,
     cold_iters: Annotated[int, typer.Option("--cold-iters")] = DEFAULT_COLD_ITERS,
     warm_iters: Annotated[int, typer.Option("--warm-iters")] = DEFAULT_WARM_ITERS,
     region: Annotated[str, typer.Option("--region")] = "us-east-1",
@@ -49,7 +47,15 @@ def run(
     logging.basicConfig(level=logging.DEBUG if verbose else logging.WARNING)
 
     raw = json.loads(config.read_text())
-    base_fns: list[dict] = raw if isinstance(raw, list) else raw["functions"]
+    base_fns: list[dict[str, Any]] = raw if isinstance(raw, list) else raw["functions"]
+
+    for entry in base_fns:
+        if "memory_mb" not in entry:
+            err.print(
+                f"[bold red]Config error:[/] [yellow]{entry.get('function_name', '?')}[/] "
+                "is missing [yellow]memory_mb[/] — add it to your functions.json."
+            )
+            raise typer.Exit(1)
 
     client = boto3.client("lambda", region_name=region)
     results: list[FnResult] = []
@@ -64,56 +70,38 @@ def run(
         for entry in base_fns:
             fn_name: str = entry["function_name"]
             variant: str = entry["variant"]
+            mem: int = entry["memory_mb"]
+            label: str = entry.get("label", f"{variant.capitalize()} {mem}MB")
+            fn = LambdaFn(label=label, function_name=fn_name, memory_mb=mem, variant=variant)
+            task = progress.add_task(f"{label}: benchmarking…", total=None)
 
-            if memory:
-                # Explicit sweep — test every config entry at each memory tier
-                tiers = [(mem, f"{variant.capitalize()} {mem}MB", True) for mem in memory]
-            elif "memory_mb" in entry:
-                # Config specifies memory — function is pre-configured, no set_memory needed
-                mem = entry["memory_mb"]
-                tiers = [(mem, entry.get("label", f"{variant.capitalize()} {mem}MB"), False)]
-            else:
-                # Fallback: default sweep, must update memory
-                tiers = [(m, f"{variant.capitalize()} {m}MB", True) for m in [512, 1024, 1800, 3008]]
-
-            for mem, label, should_set_memory in tiers:
-                fn = LambdaFn(label=label, function_name=fn_name, memory_mb=mem, variant=variant)
-                task = progress.add_task(f"{label}: benchmarking…", total=None)
-
-                if should_set_memory:
-                    progress.update(task, description=f"{label}: setting memory…")
-                    try:
-                        set_memory(client, fn_name, mem)
-                    except botocore.exceptions.ClientError as exc:
-                        _iam_guard(exc)
-
-                progress.update(task, description=f"{label}: cold starts ({cold_iters}×)…")
-                try:
-                    cold = run_cold(
-                        client, fn, cold_iters,
-                        progress_callback=lambda i, t=task: progress.update(t),
-                    )
-                except botocore.exceptions.ClientError as exc:
-                    _iam_guard(exc)
-                except RuntimeError as exc:
-                    progress.remove_task(task)
-                    err.print(f"[bold red]✗[/] {label}: {exc}")
-                    continue
-
-                progress.update(task, description=f"{label}: warm runs ({warm_iters}×)…")
-                try:
-                    warm = run_warm(
-                        client, fn, warm_iters,
-                        progress_callback=lambda i, t=task: progress.update(t),
-                    )
-                except botocore.exceptions.ClientError as exc:
-                    _iam_guard(exc)
-                except RuntimeError as exc:
-                    err.print(f"[bold red]✗[/] {label} (warm): {exc}")
-                    warm = []
-
-                results.append(FnResult(fn=fn, cold_reports=cold, warm_reports=warm))
+            progress.update(task, description=f"{label}: cold starts ({cold_iters}×)…")
+            try:
+                cold = run_cold(
+                    client, fn, cold_iters,
+                    progress_callback=lambda i: progress.update(task),
+                )
+            except botocore.exceptions.ClientError as exc:
+                _iam_guard(exc)
+            except RuntimeError as exc:
                 progress.remove_task(task)
+                err.print(f"[bold red]✗[/] {label}: {exc}")
+                continue
+
+            progress.update(task, description=f"{label}: warm runs ({warm_iters}×)…")
+            try:
+                warm = run_warm(
+                    client, fn, warm_iters,
+                    progress_callback=lambda i: progress.update(task),
+                )
+            except botocore.exceptions.ClientError as exc:
+                _iam_guard(exc)
+            except RuntimeError as exc:
+                err.print(f"[bold red]✗[/] {label} (warm): {exc}")
+                warm = []
+
+            results.append(FnResult(fn=fn, cold_reports=cold, warm_reports=warm))
+            progress.remove_task(task)
 
     if not results:
         err.print("[bold red]Error:[/] No successful benchmark results. Check errors above.")
@@ -148,7 +136,7 @@ def plot(
 def compare(
     before: Annotated[Path, typer.Argument(help="Before results JSON")],
     after: Annotated[Path, typer.Argument(help="After results JSON")],
-    output: Annotated[Optional[Path], typer.Option("--output", help="Save diff to JSON")] = None,
+    output: Annotated[Path | None, typer.Option("--output", help="Save diff to JSON")] = None,
 ) -> None:
     """Compare two benchmark result files and show a diff table."""
     for p in (before, after):
@@ -166,7 +154,7 @@ def compare(
     table.add_column("After", justify="right")
     table.add_column("Δ", justify="right")
 
-    diffs: list[dict] = []
+    diffs: list[dict[str, Any]] = []
     for label in sorted(set(before_map) | set(after_map)):
         br = before_map.get(label)
         ar = after_map.get(label)
