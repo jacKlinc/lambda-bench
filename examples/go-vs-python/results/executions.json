@@ -1,0 +1,509 @@
+{
+  "version": 1,
+  "results": [
+    {
+      "fn": {
+        "label": "Python 512MB",
+        "function_name": "ComputeStack-pythonhandler512mbloop4C111776-UTtSNGcRUyqf",
+        "memory_mb": 512,
+        "variant": "python"
+      },
+      "cold_reports": [
+        {
+          "request_id": "c76c0cd5-0496-41ec-b985-77515c5c6f34",
+          "duration_ms": 8594.46,
+          "billed_duration_ms": 8680,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": 84.95
+        },
+        {
+          "request_id": "089b748b-1e29-4b25-aff9-52f5fc2ca3a0",
+          "duration_ms": 8496.85,
+          "billed_duration_ms": 8580,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": 82.41
+        },
+        {
+          "request_id": "c4f70a7d-568e-410d-a1e3-fc2024a6cfbb",
+          "duration_ms": 8515.42,
+          "billed_duration_ms": 8601,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": 85.36
+        },
+        {
+          "request_id": "f48d9850-9b9e-4439-943d-a3b8e9328dcf",
+          "duration_ms": 8694.06,
+          "billed_duration_ms": 8780,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": 85.8
+        },
+        {
+          "request_id": "0266c5ef-fe65-4558-9307-41652d1509b6",
+          "duration_ms": 8656.34,
+          "billed_duration_ms": 8758,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": 100.82
+        },
+        {
+          "request_id": "65b8b4d1-0f71-4b26-aa94-5cc3525e1118",
+          "duration_ms": 8719.0,
+          "billed_duration_ms": 8819,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": 99.34
+        },
+        {
+          "request_id": "7d9895c8-dc13-474e-ba37-8a94d66d9177",
+          "duration_ms": 8559.77,
+          "billed_duration_ms": 8652,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": 91.6
+        },
+        {
+          "request_id": "1ce9c502-067b-4a09-8480-7aee2cbc39b5",
+          "duration_ms": 8638.82,
+          "billed_duration_ms": 8725,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": 85.85
+        },
+        {
+          "request_id": "e38476d8-d798-44ec-b973-797d969111bc",
+          "duration_ms": 8614.52,
+          "billed_duration_ms": 8702,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": 87.31
+        },
+        {
+          "request_id": "60a39a44-9c22-47c7-8c6e-0fc3d8ce7db4",
+          "duration_ms": 8655.73,
+          "billed_duration_ms": 8741,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": 84.3
+        },
+        {
+          "request_id": "1f63eea9-7bff-4b40-8f6f-137a192de39e",
+          "duration_ms": 8667.65,
+          "billed_duration_ms": 8756,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": 88.27
+        },
+        {
+          "request_id": "3196d4ff-5ad2-40da-bbfc-2c087385173d",
+          "duration_ms": 8686.32,
+          "billed_duration_ms": 8772,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": 85.12
+        },
+        {
+          "request_id": "e4271ca1-9eb4-406c-93fa-c042729d17a3",
+          "duration_ms": 8572.59,
+          "billed_duration_ms": 8662,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": 89.05
+        },
+        {
+          "request_id": "34938722-13e5-4c9a-891c-c8507358cb8a",
+          "duration_ms": 8585.95,
+          "billed_duration_ms": 8672,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": 85.51
+        },
+        {
+          "request_id": "7881031e-ca2e-4f88-ac64-e254ecaa2de9",
+          "duration_ms": 8525.1,
+          "billed_duration_ms": 8611,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": 85.35
+        }
+      ],
+      "warm_reports": [
+        {
+          "request_id": "5bf79a58-09f0-4ae3-9a55-7de2a184ca65",
+          "duration_ms": 8582.37,
+          "billed_duration_ms": 8669,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": 86.44
+        },
+        {
+          "request_id": "14eb7265-b3eb-414f-8c7d-7bc15886ba7f",
+          "duration_ms": 8295.97,
+          "billed_duration_ms": 8296,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "4c373a36-649d-4358-8d83-d555f07e5670",
+          "duration_ms": 8291.64,
+          "billed_duration_ms": 8292,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "24d8f2a1-c0f5-42e0-a46d-1a79d8460b87",
+          "duration_ms": 8313.36,
+          "billed_duration_ms": 8314,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "2cbcbc1b-9de7-4edc-a143-2137e4ee2ee4",
+          "duration_ms": 8416.05,
+          "billed_duration_ms": 8417,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "32b9616c-3083-4579-9138-bdb72a270249",
+          "duration_ms": 8336.17,
+          "billed_duration_ms": 8337,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "f0c7f499-68e0-4ad6-98be-cbf59d7d9764",
+          "duration_ms": 8374.58,
+          "billed_duration_ms": 8375,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "b456a588-8f91-487c-8b9c-016da4afa97f",
+          "duration_ms": 8314.27,
+          "billed_duration_ms": 8315,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "de0abef3-2b83-4e1f-b70a-0c1b644cb3a9",
+          "duration_ms": 8315.95,
+          "billed_duration_ms": 8316,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "f8f97821-11e5-4b5d-a6f7-8dce62dcff00",
+          "duration_ms": 8297.14,
+          "billed_duration_ms": 8298,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "67f09170-78ee-442f-b293-62ea794dbcf6",
+          "duration_ms": 8277.45,
+          "billed_duration_ms": 8278,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "a88ae376-bb15-4114-8b92-c7aecc43eeda",
+          "duration_ms": 8298.96,
+          "billed_duration_ms": 8299,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "8426a566-53d4-42b2-ba21-00b8419e302b",
+          "duration_ms": 8348.55,
+          "billed_duration_ms": 8349,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "b4637607-66bf-488b-bd7e-d421faa8d86a",
+          "duration_ms": 8300.66,
+          "billed_duration_ms": 8301,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 88,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "e02b26bd-7a9b-40f4-995b-2c633a73cdf0",
+          "duration_ms": 8326.65,
+          "billed_duration_ms": 8327,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 89,
+          "init_duration_ms": null
+        }
+      ]
+    },
+    {
+      "fn": {
+        "label": "Go 512MB",
+        "function_name": "ComputeStack-gohandler512mbdem28D47C91-wiAPoTaRQ7FJ",
+        "memory_mb": 512,
+        "variant": "go"
+      },
+      "cold_reports": [
+        {
+          "request_id": "105f86d5-19e0-4745-8529-46f9c8e559b2",
+          "duration_ms": 993.05,
+          "billed_duration_ms": 1054,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 47,
+          "init_duration_ms": 60.06
+        },
+        {
+          "request_id": "67199aff-870b-4c86-bb6d-1171c07f77c6",
+          "duration_ms": 1007.15,
+          "billed_duration_ms": 1070,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 45,
+          "init_duration_ms": 62.15
+        },
+        {
+          "request_id": "1060cc59-105a-4ca8-8ca7-2a1fb0448e26",
+          "duration_ms": 980.39,
+          "billed_duration_ms": 1042,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 45,
+          "init_duration_ms": 60.98
+        },
+        {
+          "request_id": "8f0bc9c8-f224-4729-a26a-81f9ca6de2a0",
+          "duration_ms": 988.79,
+          "billed_duration_ms": 1051,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 45,
+          "init_duration_ms": 61.9
+        },
+        {
+          "request_id": "e831d00a-a0dd-4a06-baf4-f4acb90a6022",
+          "duration_ms": 999.85,
+          "billed_duration_ms": 1062,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 47,
+          "init_duration_ms": 61.83
+        },
+        {
+          "request_id": "4bb7bc51-e190-4b05-82e3-eeaa20d31e35",
+          "duration_ms": 1002.26,
+          "billed_duration_ms": 1067,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 46,
+          "init_duration_ms": 64.46
+        },
+        {
+          "request_id": "9928de5c-ae5b-40d1-8eb9-af0b04e4cd58",
+          "duration_ms": 969.25,
+          "billed_duration_ms": 1032,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 45,
+          "init_duration_ms": 61.78
+        },
+        {
+          "request_id": "39d018d1-698a-45a7-a4d2-da1e76d226c8",
+          "duration_ms": 982.12,
+          "billed_duration_ms": 1045,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 46,
+          "init_duration_ms": 62.3
+        },
+        {
+          "request_id": "a91fef30-df53-4a7a-8738-3f5193f8638e",
+          "duration_ms": 996.39,
+          "billed_duration_ms": 1060,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 46,
+          "init_duration_ms": 62.98
+        },
+        {
+          "request_id": "b7ce2898-a4bd-410b-92d1-3590d6d8c8eb",
+          "duration_ms": 1005.59,
+          "billed_duration_ms": 1068,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 45,
+          "init_duration_ms": 61.7
+        },
+        {
+          "request_id": "5258f954-eefe-49c9-9a18-cbada91ec2ef",
+          "duration_ms": 978.36,
+          "billed_duration_ms": 1042,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 44,
+          "init_duration_ms": 63.11
+        },
+        {
+          "request_id": "398adba4-05ca-4053-8e9f-f574e0f638df",
+          "duration_ms": 982.48,
+          "billed_duration_ms": 1045,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 45,
+          "init_duration_ms": 61.74
+        },
+        {
+          "request_id": "751f6c93-47ae-4d06-914d-5c8eef6763ef",
+          "duration_ms": 1007.63,
+          "billed_duration_ms": 1071,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 44,
+          "init_duration_ms": 62.9
+        },
+        {
+          "request_id": "d65ef501-5f15-4eab-a31a-7dd9a7413bca",
+          "duration_ms": 972.09,
+          "billed_duration_ms": 1034,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 46,
+          "init_duration_ms": 61.56
+        },
+        {
+          "request_id": "45cefa35-e6ef-4d7c-b5af-3f062dea62b3",
+          "duration_ms": 983.08,
+          "billed_duration_ms": 1046,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 46,
+          "init_duration_ms": 62.25
+        }
+      ],
+      "warm_reports": [
+        {
+          "request_id": "ccae81aa-a61c-4ae5-9da4-f27094a02e6b",
+          "duration_ms": 796.28,
+          "billed_duration_ms": 797,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 46,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "c6fa5bba-0f2d-4657-979f-36ffb8cc1198",
+          "duration_ms": 990.11,
+          "billed_duration_ms": 1051,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 44,
+          "init_duration_ms": 60.83
+        },
+        {
+          "request_id": "6fa8020f-7f00-4532-a5b4-c288acca6bfb",
+          "duration_ms": 793.49,
+          "billed_duration_ms": 794,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 47,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "4e8406ed-9c4c-4146-8099-85dd5ba84458",
+          "duration_ms": 766.91,
+          "billed_duration_ms": 767,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 47,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "6a7fe9a3-dfdc-42a9-a21e-6184c5f0bce7",
+          "duration_ms": 791.34,
+          "billed_duration_ms": 792,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 47,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "5b2a51b9-cad0-42ae-b2e1-dfd1795f79ba",
+          "duration_ms": 796.37,
+          "billed_duration_ms": 797,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 47,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "61cb1aae-a6d0-42af-92b3-d963a2f564ad",
+          "duration_ms": 781.93,
+          "billed_duration_ms": 782,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 47,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "e533af19-9a48-4756-ab91-12d66da321a5",
+          "duration_ms": 761.53,
+          "billed_duration_ms": 762,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 47,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "c8c68313-1f85-47c2-8426-16d41c513971",
+          "duration_ms": 783.69,
+          "billed_duration_ms": 784,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 47,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "1ee1b8b9-ad65-4249-bfbe-a44845f00735",
+          "duration_ms": 772.83,
+          "billed_duration_ms": 773,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 47,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "b137ae62-4d84-458c-b3c8-74db7d517731",
+          "duration_ms": 789.66,
+          "billed_duration_ms": 790,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 47,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "974cbe5a-9445-4c80-800f-6ec7532d2918",
+          "duration_ms": 776.57,
+          "billed_duration_ms": 777,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 47,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "e568411f-fa7b-4a5e-8835-48ae3d842391",
+          "duration_ms": 788.76,
+          "billed_duration_ms": 789,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 47,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "0f703a09-2eaf-4064-88eb-25c490a8e44a",
+          "duration_ms": 776.25,
+          "billed_duration_ms": 777,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 47,
+          "init_duration_ms": null
+        },
+        {
+          "request_id": "75debdf0-4fe4-40b8-8edf-8b639b6f0b54",
+          "duration_ms": 753.8,
+          "billed_duration_ms": 754,
+          "memory_size_mb": 512,
+          "max_memory_used_mb": 47,
+          "init_duration_ms": null
+        }
+      ]
+    }
+  ]
+}
