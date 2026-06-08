@@ -36,18 +36,21 @@ def test_warm_exec_has_no_init_duration():
     assert r.init_duration_ms is None
 
 
-def test_truncated_log_returns_none_and_warns(caplog):
+def test_truncated_log_without_report_returns_none(caplog):
+    # "A" * 4096 has no REPORT line — None because no REPORT, not because truncated
     with caplog.at_level(logging.WARNING, logger="lambdabench.parser"):
         result = parse_report(TRUNCATED_LOG)
     assert result is None
-    assert any("truncated" in msg.lower() for msg in caplog.messages)
+    assert any("report" in msg.lower() for msg in caplog.messages)
 
 
-def test_truncated_log_with_embedded_report_returns_none():
-    # Even if a REPORT line is present, truncation takes priority.
+def test_truncated_log_with_embedded_report_parses_successfully():
+    # Lambda Tail returns the last 4 KB — REPORT is always present even in long logs
     assert len(TRUNCATED_WITH_REPORT) >= 4096
     result = parse_report(TRUNCATED_WITH_REPORT)
-    assert result is None
+    assert result is not None
+    assert result.request_id == "ccc-333"
+    assert result.billed_duration_ms == 100
 
 
 def test_no_init_duration_field():

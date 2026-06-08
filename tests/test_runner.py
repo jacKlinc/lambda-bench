@@ -5,7 +5,9 @@ import pytest
 
 from lambdabench.config import LambdaFn
 from lambdabench.invoker import InvokeResult
-from lambdabench.runner import _check_result, _wait_until_active, run_cold, run_warm, set_bench_version
+import botocore.exceptions
+
+from lambdabench.runner import _check_result, _wait_until_active, run_cold, run_warm, set_bench_version, set_memory
 from tests.fixtures.sample_logs import COLD_START, WARM_EXEC
 
 
@@ -19,6 +21,13 @@ def _make_fn(memory_mb: int = 512) -> LambdaFn:
 
 def _cfg(state: str = "Active", update_status: str = "Successful") -> dict:
     return {"State": state, "LastUpdateStatus": update_status, "Environment": {"Variables": {}}}
+
+
+def _conflict_error() -> botocore.exceptions.ClientError:
+    return botocore.exceptions.ClientError(
+        {"Error": {"Code": "ResourceConflictException", "Message": "Function update in progress"}},
+        "UpdateFunctionConfiguration",
+    )
 
 
 def _ok_result(log: str = WARM_EXEC) -> InvokeResult:
@@ -115,19 +124,88 @@ def test_set_bench_version_preserves_existing_env_vars():
 
 
 # ---------------------------------------------------------------------------
+# ResourceConflictException retry
+# ---------------------------------------------------------------------------
+
+def test_set_bench_version_retries_on_conflict():
+    client = MagicMock()
+    client.get_function_configuration.return_value = _cfg()
+    client.update_function_configuration.side_effect = [
+        _conflict_error(),  # first set attempt conflicts
+        None,               # retry succeeds
+        None,               # reset in finally
+    ]
+    with (
+        patch("lambdabench.runner._wait_until_active"),
+        patch("lambdabench.runner.time.sleep"),
+    ):
+        with set_bench_version(client, "my-fn", "v-retry"):
+            pass
+    # 3 calls: failed attempt, retry success, reset
+    assert client.update_function_configuration.call_count == 3
+
+
+def test_set_bench_version_raises_after_max_conflict_retries():
+    client = MagicMock()
+    client.get_function_configuration.return_value = _cfg()
+    client.update_function_configuration.side_effect = _conflict_error()
+    with (
+        patch("lambdabench.runner._wait_until_active"),
+        patch("lambdabench.runner.time.sleep"),
+    ):
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            with set_bench_version(client, "my-fn", "v-fail"):
+                pass  # pragma: no cover
+    assert exc_info.value.response["Error"]["Code"] == "ResourceConflictException"
+
+
+def test_set_memory_retries_on_conflict():
+    client = MagicMock()
+    client.get_function_configuration.return_value = _cfg()
+    client.update_function_configuration.side_effect = [_conflict_error(), None]
+    with (
+        patch("lambdabench.runner._wait_until_active"),
+        patch("lambdabench.runner.time.sleep") as mock_sleep,
+    ):
+        set_memory(client, "my-fn", 1024)
+    assert client.update_function_configuration.call_count == 2
+    mock_sleep.assert_called_once()
+
+
+def test_conflict_retry_uses_exponential_backoff():
+    client = MagicMock()
+    client.get_function_configuration.return_value = _cfg()
+    client.update_function_configuration.side_effect = [
+        _conflict_error(), _conflict_error(), None
+    ]
+    with (
+        patch("lambdabench.runner._wait_until_active"),
+        patch("lambdabench.runner.time.sleep") as mock_sleep,
+    ):
+        set_memory(client, "my-fn", 512)
+    delays = [c.args[0] for c in mock_sleep.call_args_list]
+    assert delays == [1.0, 2.0]
+
+
+# ---------------------------------------------------------------------------
 # _check_result
 # ---------------------------------------------------------------------------
 
-def test_check_result_raises_on_oom():
+def test_check_result_skips_oom_and_warns(caplog):
+    import logging
     fn = _make_fn()
-    with pytest.raises(RuntimeError, match="OOM"):
-        _check_result(_oom_result(), fn)
+    with caplog.at_level(logging.WARNING, logger="lambdabench.runner"):
+        result = _check_result(_oom_result(), fn)
+    assert result is None
+    assert any("oom" in m.lower() for m in caplog.messages)
 
 
-def test_check_result_raises_on_function_error():
+def test_check_result_parses_log_on_function_error():
     fn = _make_fn()
-    with pytest.raises(RuntimeError, match="FunctionError"):
-        _check_result(_error_result(), fn)
+    # Non-OOM function errors: _check_result tries to parse the log (Lambda always has REPORT)
+    result = _check_result(_error_result(), fn)
+    # "oops" log has no REPORT line, so parse_report returns None — not an error skip
+    assert result is None
 
 
 def test_check_result_returns_report_on_success():
@@ -163,17 +241,30 @@ def test_run_cold_calls_progress_callback():
     assert cb.call_args_list == [call(1), call(2), call(3)]
 
 
-def test_run_cold_raises_on_oom():
+def test_run_cold_raises_when_all_fail(caplog):
+    import logging
     fn = _make_fn()
     with (
         patch("lambdabench.runner.set_bench_version"),
         patch("lambdabench.runner.invoke", return_value=_oom_result()),
     ):
-        with pytest.raises(RuntimeError, match="OOM"):
-            run_cold(MagicMock(), fn, n=1)
+        with caplog.at_level(logging.WARNING, logger="lambdabench.runner"):
+            with pytest.raises(RuntimeError, match="all.*cold invocations failed"):
+                run_cold(MagicMock(), fn, n=3)
+    assert any("oom" in m.lower() for m in caplog.messages)
 
 
-def test_run_cold_skips_truncated_log(caplog):
+def test_run_cold_skips_partial_failures_and_returns_successes():
+    fn = _make_fn()
+    with (
+        patch("lambdabench.runner.set_bench_version"),
+        patch("lambdabench.runner.invoke", side_effect=[_oom_result(), _ok_result(), _oom_result()]),
+    ):
+        reports = run_cold(MagicMock(), fn, n=3)
+    assert len(reports) == 1
+
+
+def test_run_cold_raises_when_all_truncated(caplog):
     import logging
     fn = _make_fn()
     truncated_result = InvokeResult(log="x" * 4096, function_error=None, is_oom=False)
@@ -182,8 +273,8 @@ def test_run_cold_skips_truncated_log(caplog):
         patch("lambdabench.runner.invoke", return_value=truncated_result),
     ):
         with caplog.at_level(logging.WARNING):
-            reports = run_cold(MagicMock(), fn, n=2)
-    assert reports == []
+            with pytest.raises(RuntimeError, match="all.*cold invocations failed"):
+                run_cold(MagicMock(), fn, n=2)
 
 
 # ---------------------------------------------------------------------------
@@ -199,21 +290,54 @@ def test_run_warm_primes_then_warms():
     assert len(reports) == 3
 
 
-def test_run_warm_raises_on_prime_oom():
+def test_run_warm_tolerates_prime_oom_and_continues(caplog):
+    import logging
     fn = _make_fn()
-    with patch("lambdabench.runner.invoke", return_value=_oom_result()):
-        with pytest.raises(RuntimeError, match="OOM"):
+    # prime OOMs, then warm runs succeed
+    with patch(
+        "lambdabench.runner.invoke",
+        side_effect=[_oom_result(), _ok_result(), _ok_result(), _ok_result()],
+    ):
+        with caplog.at_level(logging.WARNING, logger="lambdabench.runner"):
+            reports = run_warm(MagicMock(), fn, n=3)
+    assert len(reports) == 3
+    assert any("prime" in m.lower() for m in caplog.messages)
+
+
+def test_run_warm_tolerates_prime_function_error_and_continues(caplog):
+    import logging
+    fn = _make_fn()
+    with patch(
+        "lambdabench.runner.invoke",
+        side_effect=[_error_result(), _ok_result(), _ok_result()],
+    ):
+        with caplog.at_level(logging.WARNING, logger="lambdabench.runner"):
+            reports = run_warm(MagicMock(), fn, n=2)
+    assert len(reports) == 2
+    assert any("prime" in m.lower() for m in caplog.messages)
+
+
+def test_run_warm_raises_when_all_warm_fail():
+    fn = _make_fn()
+    with patch(
+        "lambdabench.runner.invoke",
+        side_effect=[_ok_result(), _oom_result(), _oom_result(), _oom_result()],
+    ):
+        with pytest.raises(RuntimeError, match="all.*warm invocations failed"):
             run_warm(MagicMock(), fn, n=3)
 
 
-def test_run_warm_raises_on_warm_oom():
+def test_run_warm_skips_oom_warm_iteration(caplog):
+    import logging
     fn = _make_fn()
     with patch(
         "lambdabench.runner.invoke",
         side_effect=[_ok_result(), _ok_result(), _oom_result()],
     ):
-        with pytest.raises(RuntimeError, match="OOM"):
-            run_warm(MagicMock(), fn, n=2)
+        with caplog.at_level(logging.WARNING, logger="lambdabench.runner"):
+            reports = run_warm(MagicMock(), fn, n=2)
+    # prime ok, warm[0] ok → 1 report; warm[1] OOM → skipped
+    assert len(reports) == 1
 
 
 def test_run_warm_calls_progress_callback():

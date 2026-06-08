@@ -6,7 +6,9 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "boto3>=1.43.22",
+    "coverage>=7.14.1",
     "matplotlib>=3.10.9",
+    "pytest-cov>=7.1.0",
     "typer>=0.26.7",
 ]
 
@@ -27,6 +29,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/lambdabench"]
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: calls real AWS Lambda — set LAMBDA_BENCH_INTEGRATION=1 to run",
+]
 
 [tool.ruff]
 line-length = 100

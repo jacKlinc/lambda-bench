@@ -27,17 +27,12 @@ class Report:
 
 
 def parse_report(log: str) -> Report | None:
-    """Parse a Lambda REPORT line from log output.
-
-    Returns None and warns if the log appears truncated or no REPORT line found.
-    """
     if len(log) >= LOG_TRUNCATION_LIMIT:
-        logger.warning(
-            "Log appears truncated (%d chars >= %d limit); skipping parse.",
+        logger.debug(
+            "Log is %d chars (>= %d); Lambda Tail returns the last 4 KB so REPORT is still present.",
             len(log),
             LOG_TRUNCATION_LIMIT,
         )
-        return None
 
     m = _REPORT_RE.search(log)
     if m is None:
