@@ -25,7 +25,6 @@ uv tool install lambda-bench
 ```bash
 lambda-bench run \
   --config functions.json \
-  --memory 512 1024 1800 3000 \
   --cold-iters 15 \
   --warm-iters 15 \
   --region ca-west-1 \
