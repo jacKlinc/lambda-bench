@@ -1,5 +1,9 @@
 # lambda-bench
 
+[![CI](https://github.com/jacKlinc/lambda-bench/actions/workflows/ci.yml/badge.svg)](https://github.com/jacKlinc/lambda-bench/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/lambda-bench)](https://pypi.org/project/lambda-bench/)
+[![Coverage](https://codecov.io/gh/jacKlinc/lambda-bench/branch/main/graph/badge.svg)](https://codecov.io/gh/jacKlinc/lambda-bench)
+
 Benchmarks AWS Lambda cold and warm start performance across memory tiers and runtimes (Python vs Go). Produces percentile stats, cost-proxy calculations, and publication-ready plots.
 
 ## Install
