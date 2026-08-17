@@ -14,7 +14,7 @@ from rich.table import Table
 from lambdabench.config import DEFAULT_COLD_ITERS, DEFAULT_WARM_ITERS, LambdaFn
 from lambdabench.export import load_results_json, save_csv, save_results_json
 from lambdabench.plot import plot_all
-from lambdabench.runner import FnResult, run_cold, run_warm
+from lambdabench.runner import FnResult, run_cold, run_warm, set_memory
 from lambdabench.stats import summarise
 
 app = typer.Typer(pretty_exceptions_show_locals=False, add_completion=False)
@@ -60,48 +60,87 @@ def run(
     client = boto3.client("lambda", region_name=region)
     results: list[FnResult] = []
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        TimeElapsedColumn(),
-        console=console,
-        transient=True,
-    ) as progress:
-        for entry in base_fns:
-            fn_name: str = entry["function_name"]
-            variant: str = entry["variant"]
-            mem: int = entry["memory_mb"]
-            label: str = entry.get("label", f"{variant.capitalize()} {mem}MB")
-            fn = LambdaFn(label=label, function_name=fn_name, memory_mb=mem, variant=variant)
-            task = progress.add_task(f"{label}: benchmarking…", total=None)
+    # Memory tiers are applied to the live function, so remember what each one started
+    # at and put it back afterwards — otherwise an interrupted run leaves the function
+    # sitting at whatever tier happened to be benchmarked last.
+    original_memory: dict[str, int] = {}
+    current_memory: dict[str, int] = {}
 
-            progress.update(task, description=f"{label}: cold starts ({cold_iters}×)…")
-            try:
-                cold = run_cold(
-                    client, fn, cold_iters,
-                    progress_callback=lambda i: progress.update(task),
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            TimeElapsedColumn(),
+            console=console,
+            transient=True,
+        ) as progress:
+            for entry in base_fns:
+                fn_name: str = entry["function_name"]
+                variant: str = entry["variant"]
+                mem: int = entry["memory_mb"]
+                label: str = entry.get("label", f"{variant.capitalize()} {mem}MB")
+                payload_obj = entry.get("payload")
+                fn = LambdaFn(
+                    label=label,
+                    function_name=fn_name,
+                    memory_mb=mem,
+                    variant=variant,
+                    payload=json.dumps(payload_obj) if payload_obj is not None else "{}",
                 )
-            except botocore.exceptions.ClientError as exc:
-                _iam_guard(exc)
-            except RuntimeError as exc:
+                task = progress.add_task(f"{label}: benchmarking…", total=None)
+
+                try:
+                    if fn_name not in original_memory:
+                        started_at = client.get_function_configuration(FunctionName=fn_name)[
+                            "MemorySize"
+                        ]
+                        original_memory[fn_name] = started_at
+                        current_memory[fn_name] = started_at
+                    if current_memory[fn_name] != mem:
+                        progress.update(task, description=f"{label}: setting memory to {mem} MB…")
+                        set_memory(client, fn_name, mem)
+                        current_memory[fn_name] = mem
+                except botocore.exceptions.ClientError as exc:
+                    _iam_guard(exc)
+
+                progress.update(task, description=f"{label}: cold starts ({cold_iters}×)…")
+                try:
+                    cold = run_cold(
+                        client, fn, cold_iters,
+                        progress_callback=lambda i: progress.update(task),
+                    )
+                except botocore.exceptions.ClientError as exc:
+                    _iam_guard(exc)
+                except RuntimeError as exc:
+                    progress.remove_task(task)
+                    err.print(f"[bold red]✗[/] {label}: {exc}")
+                    continue
+
+                progress.update(task, description=f"{label}: warm runs ({warm_iters}×)…")
+                try:
+                    warm = run_warm(
+                        client, fn, warm_iters,
+                        progress_callback=lambda i: progress.update(task),
+                    )
+                except botocore.exceptions.ClientError as exc:
+                    _iam_guard(exc)
+                except RuntimeError as exc:
+                    err.print(f"[bold red]✗[/] {label} (warm): {exc}")
+                    warm = []
+
+                results.append(FnResult(fn=fn, cold_reports=cold, warm_reports=warm))
                 progress.remove_task(task)
-                err.print(f"[bold red]✗[/] {label}: {exc}")
+    finally:
+        for fn_name, started_at in original_memory.items():
+            if current_memory.get(fn_name) == started_at:
                 continue
-
-            progress.update(task, description=f"{label}: warm runs ({warm_iters}×)…")
             try:
-                warm = run_warm(
-                    client, fn, warm_iters,
-                    progress_callback=lambda i: progress.update(task),
+                set_memory(client, fn_name, started_at)
+            except Exception:
+                err.print(
+                    f"[bold red]![/] Could not restore [yellow]{fn_name}[/] to "
+                    f"{started_at} MB — check its configuration."
                 )
-            except botocore.exceptions.ClientError as exc:
-                _iam_guard(exc)
-            except RuntimeError as exc:
-                err.print(f"[bold red]✗[/] {label} (warm): {exc}")
-                warm = []
-
-            results.append(FnResult(fn=fn, cold_reports=cold, warm_reports=warm))
-            progress.remove_task(task)
 
     if not results:
         err.print("[bold red]Error:[/] No successful benchmark results. Check errors above.")

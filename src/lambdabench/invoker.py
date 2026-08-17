@@ -22,6 +22,22 @@ class InvokeResult:
     log: str
     function_error: str | None
     is_oom: bool
+    status_code: int | None = None
+    """`statusCode` from the returned payload, for handlers that answer with an HTTP-shaped
+    response. None when the payload isn't JSON or carries no `statusCode`. Note this is the
+    *function's* status, not the invocation's: a handler returning 401 is still a successful
+    invocation with no FunctionError, so this is the only way to notice it."""
+
+
+def _extract_status_code(raw_payload: bytes) -> int | None:
+    try:
+        parsed = json.loads(raw_payload)
+    except Exception:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    code = parsed.get("statusCode")
+    return code if isinstance(code, int) else None
 
 
 def invoke(
@@ -58,11 +74,16 @@ def invoke(
                     len(log),
                     LOG_TRUNCATION_LIMIT,
                 )
+            # The payload is a stream that can only be read once, so read it here and
+            # reuse the bytes for both the OOM check and the status code.
+            payload_stream = response.get("Payload")
+            raw_payload = payload_stream.read() if payload_stream is not None else b""
             function_error: str | None = response.get("FunctionError")
             is_oom = False
+            status_code: int | None = None
             if function_error:
                 try:
-                    error_payload = json.loads(response["Payload"].read())
+                    error_payload = json.loads(raw_payload)
                     error_type = error_payload.get("errorType", "")
                     error_msg = error_payload.get("errorMessage", "")
                     is_oom = (
@@ -77,7 +98,14 @@ def invoke(
                         function_name,
                         function_error,
                     )
-            return InvokeResult(log=log, function_error=function_error, is_oom=is_oom)
+            else:
+                status_code = _extract_status_code(raw_payload)
+            return InvokeResult(
+                log=log,
+                function_error=function_error,
+                is_oom=is_oom,
+                status_code=status_code,
+            )
         except botocore.exceptions.ClientError as exc:
             if exc.response["Error"]["Code"] in _RETRYABLE_CODES:
                 last_error = exc

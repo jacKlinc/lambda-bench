@@ -1,4 +1,5 @@
 import base64
+import io
 import logging
 from unittest.mock import MagicMock, call, patch
 
@@ -145,3 +146,45 @@ def test_invoke_exponential_backoff_delays():
         invoke(client, "my-fn")
     delays = [c.args[0] for c in mock_sleep.call_args_list]
     assert delays == [_BASE_DELAY * 1, _BASE_DELAY * 2, _BASE_DELAY * 4]
+
+
+# ---------------------------------------------------------------------------
+# status_code extraction
+# ---------------------------------------------------------------------------
+
+def _resp(payload: bytes, log: str = "REPORT RequestId: x") -> dict:
+    return {
+        "LogResult": base64.b64encode(log.encode()).decode(),
+        "Payload": io.BytesIO(payload),
+    }
+
+
+def test_invoke_extracts_status_code():
+    client = MagicMock()
+    client.invoke.return_value = _resp(b'{"statusCode":200,"body":"ok"}')
+    assert invoke(client, "my-fn").status_code == 200
+
+
+def test_invoke_extracts_non_200_status_code():
+    client = MagicMock()
+    client.invoke.return_value = _resp(b'{"statusCode":401,"body":"unauthorized"}')
+    assert invoke(client, "my-fn").status_code == 401
+
+
+def test_invoke_status_code_none_for_non_http_payload():
+    client = MagicMock()
+    client.invoke.return_value = _resp(b'{"result":"fine"}')
+    assert invoke(client, "my-fn").status_code is None
+
+
+def test_invoke_status_code_none_for_unparseable_payload():
+    client = MagicMock()
+    client.invoke.return_value = _resp(b"not json at all")
+    assert invoke(client, "my-fn").status_code is None
+
+
+def test_invoke_passes_payload_to_client():
+    client = MagicMock()
+    client.invoke.return_value = _resp(b"{}")
+    invoke(client, "my-fn", b'{"rawPath":"/mcp"}')
+    assert client.invoke.call_args.kwargs["Payload"] == b'{"rawPath":"/mcp"}'

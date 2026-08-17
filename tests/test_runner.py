@@ -354,3 +354,64 @@ def test_run_warm_calls_progress_callback():
         run_warm(MagicMock(), fn, n=4, progress_callback=cb)
     assert cb.call_count == 4
     assert cb.call_args_list == [call(1), call(2), call(3), call(4)]
+
+
+# ---------------------------------------------------------------------------
+# payload threading + non-200 guard
+# ---------------------------------------------------------------------------
+
+def _status_result(status: int, log: str = WARM_EXEC) -> InvokeResult:
+    return InvokeResult(log=log, function_error=None, is_oom=False, status_code=status)
+
+
+def test_run_warm_passes_configured_payload_to_invoke():
+    fn = LambdaFn(
+        label="test", function_name="my-fn", memory_mb=512, variant="go",
+        payload='{"rawPath":"/mcp"}',
+    )
+    with patch("lambdabench.runner.invoke", return_value=_ok_result()) as mock_invoke:
+        run_warm(MagicMock(), fn, n=1)
+    for invocation in mock_invoke.call_args_list:
+        assert invocation.args[2] == b'{"rawPath":"/mcp"}'
+
+
+def test_run_cold_passes_configured_payload_to_invoke():
+    fn = LambdaFn(
+        label="test", function_name="my-fn", memory_mb=512, variant="go",
+        payload='{"rawPath":"/mcp"}',
+    )
+    client = MagicMock()
+    client.get_function_configuration.return_value = _cfg()
+    with patch("lambdabench.runner.invoke", return_value=_ok_result()) as mock_invoke:
+        run_cold(client, fn, n=1)
+    assert mock_invoke.call_args.args[2] == b'{"rawPath":"/mcp"}'
+
+
+def test_run_warm_aborts_when_prime_returns_non_200():
+    """A 401 is a successful invocation with no FunctionError, so only the status catches it."""
+    fn = _make_fn()
+    with patch("lambdabench.runner.invoke", return_value=_status_result(401)):
+        with pytest.raises(RuntimeError, match="statusCode 401"):
+            run_warm(MagicMock(), fn, n=3)
+
+
+def test_run_cold_aborts_when_first_invocation_returns_non_200():
+    fn = _make_fn()
+    client = MagicMock()
+    client.get_function_configuration.return_value = _cfg()
+    with patch("lambdabench.runner.invoke", return_value=_status_result(404)):
+        with pytest.raises(RuntimeError, match="statusCode 404"):
+            run_cold(client, fn, n=3)
+
+
+def test_run_warm_accepts_200_status():
+    fn = _make_fn()
+    with patch("lambdabench.runner.invoke", return_value=_status_result(200)):
+        assert len(run_warm(MagicMock(), fn, n=2)) == 2
+
+
+def test_run_warm_accepts_handler_without_status_code():
+    """Functions that don't return an HTTP-shaped payload must not be blocked."""
+    fn = _make_fn()
+    with patch("lambdabench.runner.invoke", return_value=_ok_result()):
+        assert len(run_warm(MagicMock(), fn, n=2)) == 2
