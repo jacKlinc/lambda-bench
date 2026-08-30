@@ -16,3 +16,9 @@ class LambdaFn:
     function_name: str
     memory_mb: int
     variant: str
+    payload: str = "{}"
+    """Invocation event as a JSON string. Handlers that authenticate or route on the event
+    need a real one — the default `{}` measures whatever early-exit path they take.
+
+    Kept as str rather than bytes so results round-trip through executions.json.
+    """

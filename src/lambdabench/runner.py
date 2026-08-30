@@ -97,6 +97,22 @@ def _check_result(result: InvokeResult, fn: LambdaFn) -> Report | None:
     return parse_report(result.log)
 
 
+def _assert_ok(result: InvokeResult, fn: LambdaFn, phase: str) -> None:
+    """Abort when the handler answered with a non-200 status.
+
+    Such an invocation is successful as far as Lambda is concerned — no FunctionError —
+    so nothing else catches it. Benchmarking it would silently measure an early-exit path
+    (a 401 returned before any real work) and report fast, meaningless percentiles.
+    """
+    if result.status_code is None or result.status_code == 200:
+        return
+    raise RuntimeError(
+        f"{phase} invocation for {fn.function_name} ({fn.memory_mb} MB) returned "
+        f"statusCode {result.status_code}, not 200 — the function exited early, so the "
+        "timings would be meaningless. Check the payload and credentials in your config."
+    )
+
+
 def run_cold(
     client: Any,
     fn: LambdaFn,
@@ -106,7 +122,9 @@ def run_cold(
     reports: list[Report] = []
     for i in range(n):
         with set_bench_version(client, fn.function_name, str(uuid.uuid4())):
-            result = invoke(client, fn.function_name)
+            result = invoke(client, fn.function_name, fn.payload.encode())
+        if i == 0:
+            _assert_ok(result, fn, "First cold")
         report = _check_result(result, fn)
         if report is not None:
             reports.append(report)
@@ -126,7 +144,8 @@ def run_warm(
     n: int,
     progress_callback: Callable[[int], None] | None = None,
 ) -> list[Report]:
-    prime = invoke(client, fn.function_name)
+    prime = invoke(client, fn.function_name, fn.payload.encode())
+    _assert_ok(prime, fn, "Prime")
     if prime.is_oom:
         logger.warning(
             "Prime invocation OOMed for %s (%d MB) — warm results may be unreliable.",
@@ -140,7 +159,7 @@ def run_warm(
 
     reports: list[Report] = []
     for i in range(n):
-        result = invoke(client, fn.function_name)
+        result = invoke(client, fn.function_name, fn.payload.encode())
         report = _check_result(result, fn)
         if report is not None:
             reports.append(report)

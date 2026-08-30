@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import botocore.exceptions
 import pytest
@@ -33,6 +33,22 @@ def _make_fn_results(memory: int = 512) -> list[FnResult]:
     return [FnResult(fn=fn, cold_reports=[_COLD_REPORT], warm_reports=[_WARM_REPORT])]
 
 
+def _fake_lambda_client(memory: int = 512) -> MagicMock:
+    """Lambda client whose function already sits at the configured memory tier.
+
+    `run` reads MemorySize to decide whether to resize, so a bare MagicMock would
+    compare a mock against the tier, trigger a resize, and then block in
+    _wait_until_active until it times out.
+    """
+    client = MagicMock()
+    client.get_function_configuration.return_value = {
+        "MemorySize": memory,
+        "State": "Active",
+        "LastUpdateStatus": "Successful",
+    }
+    return client
+
+
 # ---------------------------------------------------------------------------
 # run subcommand
 # ---------------------------------------------------------------------------
@@ -43,7 +59,7 @@ def test_run_creates_executions_json(tmp_path):
     out = tmp_path / "out"
 
     with (
-        patch("lambdabench.cli.boto3.client"),
+        patch("lambdabench.cli.boto3.client", return_value=_fake_lambda_client()),
         patch("lambdabench.cli.run_cold", return_value=[_COLD_REPORT]),
         patch("lambdabench.cli.run_warm", return_value=[_WARM_REPORT]),
         patch("lambdabench.cli.plot_all"),
@@ -64,7 +80,7 @@ def test_run_creates_csv(tmp_path):
     out = tmp_path / "out"
 
     with (
-        patch("lambdabench.cli.boto3.client"),
+        patch("lambdabench.cli.boto3.client", return_value=_fake_lambda_client()),
         patch("lambdabench.cli.run_cold", return_value=[_COLD_REPORT]),
         patch("lambdabench.cli.run_warm", return_value=[_WARM_REPORT]),
         patch("lambdabench.cli.plot_all"),
@@ -83,7 +99,7 @@ def test_run_calls_plot_all(tmp_path):
     config_file.write_text(json.dumps(_CONFIG))
 
     with (
-        patch("lambdabench.cli.boto3.client"),
+        patch("lambdabench.cli.boto3.client", return_value=_fake_lambda_client()),
         patch("lambdabench.cli.run_cold", return_value=[_COLD_REPORT]),
         patch("lambdabench.cli.run_warm", return_value=[_WARM_REPORT]),
         patch("lambdabench.cli.plot_all") as mock_plot,
@@ -103,7 +119,7 @@ def test_run_executions_json_content(tmp_path):
     out = tmp_path / "out"
 
     with (
-        patch("lambdabench.cli.boto3.client"),
+        patch("lambdabench.cli.boto3.client", return_value=_fake_lambda_client()),
         patch("lambdabench.cli.run_cold", return_value=[_COLD_REPORT]),
         patch("lambdabench.cli.run_warm", return_value=[_WARM_REPORT]),
         patch("lambdabench.cli.plot_all"),
@@ -127,7 +143,7 @@ def test_run_missing_memory_mb_exits_nonzero(tmp_path):
     config_file = tmp_path / "fns.json"
     config_file.write_text(json.dumps(config))
 
-    with patch("lambdabench.cli.boto3.client"):
+    with patch("lambdabench.cli.boto3.client", return_value=_fake_lambda_client()):
         result = runner.invoke(app, [
             "run", "--config", str(config_file), "--output-dir", str(tmp_path / "out"),
         ])
@@ -145,7 +161,7 @@ def test_run_uses_memory_mb_from_config(tmp_path):
     config_file.write_text(json.dumps(config))
 
     with (
-        patch("lambdabench.cli.boto3.client"),
+        patch("lambdabench.cli.boto3.client", return_value=_fake_lambda_client()),
         patch("lambdabench.cli.run_cold", return_value=[_COLD_REPORT]),
         patch("lambdabench.cli.run_warm", return_value=[_WARM_REPORT]),
         patch("lambdabench.cli.plot_all"),
@@ -177,7 +193,7 @@ def test_run_cold_failure_skips_function_continues_to_next(tmp_path):
         return [_COLD_REPORT]
 
     with (
-        patch("lambdabench.cli.boto3.client"),
+        patch("lambdabench.cli.boto3.client", return_value=_fake_lambda_client()),
         patch("lambdabench.cli.run_cold", side_effect=cold_side_effect),
         patch("lambdabench.cli.run_warm", return_value=[_WARM_REPORT]),
         patch("lambdabench.cli.plot_all"),
@@ -201,7 +217,7 @@ def test_run_exits_nonzero_when_all_functions_fail(tmp_path):
     out = tmp_path / "out"
 
     with (
-        patch("lambdabench.cli.boto3.client"),
+        patch("lambdabench.cli.boto3.client", return_value=_fake_lambda_client()),
         patch("lambdabench.cli.run_cold", side_effect=RuntimeError("all cold invocations failed")),
         patch("lambdabench.cli.plot_all"),
     ):
@@ -222,7 +238,7 @@ def test_run_warm_failure_saves_cold_results(tmp_path):
     out = tmp_path / "out"
 
     with (
-        patch("lambdabench.cli.boto3.client"),
+        patch("lambdabench.cli.boto3.client", return_value=_fake_lambda_client()),
         patch("lambdabench.cli.run_cold", return_value=[_COLD_REPORT]),
         patch(
             "lambdabench.cli.run_warm",
@@ -253,7 +269,7 @@ def test_run_iam_error_exits_nonzero(tmp_path):
         "Invoke",
     )
     with (
-        patch("lambdabench.cli.boto3.client"),
+        patch("lambdabench.cli.boto3.client", return_value=_fake_lambda_client()),
         patch("lambdabench.cli.run_cold", side_effect=iam_error),
     ):
         result = runner.invoke(app, [
@@ -357,3 +373,121 @@ def test_save_load_results_round_trip(tmp_path):
     assert loaded[0].fn.memory_mb == 512
     assert len(loaded[0].cold_reports) == 1
     assert loaded[0].cold_reports[0].init_duration_ms == pytest.approx(300.0)
+
+
+# ---------------------------------------------------------------------------
+# memory sweep + payload
+# ---------------------------------------------------------------------------
+
+def _run_sweep(tmp_path, config, client):
+    config_file = tmp_path / "fns.json"
+    config_file.write_text(json.dumps(config))
+    with (
+        patch("lambdabench.cli.boto3.client", return_value=client),
+        patch("lambdabench.cli.run_cold", return_value=[_COLD_REPORT]),
+        patch("lambdabench.cli.run_warm", return_value=[_WARM_REPORT]),
+        patch("lambdabench.cli.plot_all"),
+    ):
+        return runner.invoke(app, [
+            "run", "--config", str(config_file),
+            "--cold-iters", "1", "--warm-iters", "1",
+            "--output-dir", str(tmp_path / "out"),
+        ])
+
+
+def test_run_applies_each_memory_tier(tmp_path):
+    """Each tier must actually be pushed to the function, not just relabelled."""
+    config = [
+        {"function_name": "fn-test", "variant": "go", "memory_mb": 256},
+        {"function_name": "fn-test", "variant": "go", "memory_mb": 1024},
+    ]
+    client = _fake_lambda_client(memory=256)
+    result = _run_sweep(tmp_path, config, client)
+
+    assert result.exit_code == 0, result.output
+    sizes = [
+        c.kwargs["MemorySize"]
+        for c in client.update_function_configuration.call_args_list
+        if "MemorySize" in c.kwargs
+    ]
+    # 256 already deployed → skipped; 1024 applied; then restored to 256.
+    assert sizes == [1024, 256]
+
+
+def test_run_restores_original_memory_after_failure(tmp_path):
+    """An exception mid-sweep must not leave the function on a benchmark tier."""
+    config = [{"function_name": "fn-test", "variant": "go", "memory_mb": 1024}]
+    config_file = tmp_path / "fns.json"
+    config_file.write_text(json.dumps(config))
+    client = _fake_lambda_client(memory=256)
+
+    with (
+        patch("lambdabench.cli.boto3.client", return_value=client),
+        patch("lambdabench.cli.run_cold", side_effect=ValueError("boom")),
+        patch("lambdabench.cli.plot_all"),
+    ):
+        runner.invoke(app, [
+            "run", "--config", str(config_file),
+            "--cold-iters", "1", "--warm-iters", "1",
+            "--output-dir", str(tmp_path / "out"),
+        ])
+
+    sizes = [
+        c.kwargs["MemorySize"]
+        for c in client.update_function_configuration.call_args_list
+        if "MemorySize" in c.kwargs
+    ]
+    assert sizes[-1] == 256
+
+
+def test_run_threads_payload_from_config(tmp_path):
+    config = [{
+        "function_name": "fn-test", "variant": "go", "memory_mb": 512,
+        "payload": {"rawPath": "/mcp"},
+    }]
+    config_file = tmp_path / "fns.json"
+    config_file.write_text(json.dumps(config))
+    captured = {}
+
+    def capture_cold(client, fn, n, **kw):
+        captured["payload"] = fn.payload
+        return [_COLD_REPORT]
+
+    with (
+        patch("lambdabench.cli.boto3.client", return_value=_fake_lambda_client()),
+        patch("lambdabench.cli.run_cold", side_effect=capture_cold),
+        patch("lambdabench.cli.run_warm", return_value=[_WARM_REPORT]),
+        patch("lambdabench.cli.plot_all"),
+    ):
+        runner.invoke(app, [
+            "run", "--config", str(config_file),
+            "--cold-iters", "1", "--warm-iters", "1",
+            "--output-dir", str(tmp_path / "out"),
+        ])
+
+    assert json.loads(captured["payload"]) == {"rawPath": "/mcp"}
+
+
+def test_run_defaults_payload_when_absent(tmp_path):
+    config = [{"function_name": "fn-test", "variant": "go", "memory_mb": 512}]
+    config_file = tmp_path / "fns.json"
+    config_file.write_text(json.dumps(config))
+    captured = {}
+
+    def capture_cold(client, fn, n, **kw):
+        captured["payload"] = fn.payload
+        return [_COLD_REPORT]
+
+    with (
+        patch("lambdabench.cli.boto3.client", return_value=_fake_lambda_client()),
+        patch("lambdabench.cli.run_cold", side_effect=capture_cold),
+        patch("lambdabench.cli.run_warm", return_value=[_WARM_REPORT]),
+        patch("lambdabench.cli.plot_all"),
+    ):
+        runner.invoke(app, [
+            "run", "--config", str(config_file),
+            "--cold-iters", "1", "--warm-iters", "1",
+            "--output-dir", str(tmp_path / "out"),
+        ])
+
+    assert captured["payload"] == "{}"
