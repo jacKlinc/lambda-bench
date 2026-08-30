@@ -51,32 +51,27 @@ def test_invoke_decodes_base64_log():
     assert result.log == log_text
 
 
-def test_invoke_retries_on_throttle():
+@pytest.mark.parametrize(
+    ("code", "failures", "expected_delays"),
+    [
+        ("TooManyRequestsException", 2, [_BASE_DELAY * 1, _BASE_DELAY * 2]),
+        ("ServiceException", 1, [_BASE_DELAY * 1]),
+        (
+            "TooManyRequestsException",
+            3,
+            [_BASE_DELAY * 1, _BASE_DELAY * 2, _BASE_DELAY * 4],
+        ),
+    ],
+)
+def test_invoke_retries_with_exponential_backoff(code, failures, expected_delays):
     client = MagicMock()
-    client.invoke.side_effect = [
-        _client_error("TooManyRequestsException"),
-        _client_error("TooManyRequestsException"),
-        _make_response("ok"),
+    client.invoke.side_effect = [_client_error(code)] * failures + [
+        _make_response("ok")
     ]
     with patch("lambdabench.invoker.time.sleep") as mock_sleep:
         result = invoke(client, "my-fn")
     assert result.log == "ok"
-    assert mock_sleep.call_count == 2
-    assert mock_sleep.call_args_list == [
-        call(_BASE_DELAY * 1),
-        call(_BASE_DELAY * 2),
-    ]
-
-
-def test_invoke_retries_on_service_exception():
-    client = MagicMock()
-    client.invoke.side_effect = [
-        _client_error("ServiceException"),
-        _make_response("recovered"),
-    ]
-    with patch("lambdabench.invoker.time.sleep"):
-        result = invoke(client, "my-fn")
-    assert result.log == "recovered"
+    assert mock_sleep.call_args_list == [call(d) for d in expected_delays]
 
 
 def test_invoke_raises_after_max_retries():
@@ -99,30 +94,29 @@ def test_invoke_does_not_retry_non_retryable():
     assert client.invoke.call_count == 1
 
 
-def test_invoke_detects_oom():
-    oom_log = "START RequestId: x\nRuntime exited with error: signal: killed\nEND RequestId: x\n"
+@pytest.mark.parametrize(
+    ("log", "function_error", "expected_oom"),
+    [
+        (
+            "START RequestId: x\nRuntime exited with error: signal: killed\nEND RequestId: x\n",
+            "Unhandled",
+            True,
+        ),
+        (
+            "START RequestId: x\nException: something bad\nEND RequestId: x\n",
+            "Unhandled",
+            False,
+        ),
+        # An OOM-looking log without a FunctionError is a healthy invocation.
+        ("signal: killed", None, False),
+    ],
+)
+def test_invoke_oom_detection(log, function_error, expected_oom):
     client = MagicMock()
-    client.invoke.return_value = _make_response(oom_log, function_error="Unhandled")
+    client.invoke.return_value = _make_response(log, function_error=function_error)
     result = invoke(client, "my-fn")
-    assert result.is_oom is True
-    assert result.function_error == "Unhandled"
-
-
-def test_invoke_function_error_without_oom_pattern():
-    error_log = "START RequestId: x\nException: something bad\nEND RequestId: x\n"
-    client = MagicMock()
-    client.invoke.return_value = _make_response(error_log, function_error="Unhandled")
-    result = invoke(client, "my-fn")
-    assert result.function_error == "Unhandled"
-    assert result.is_oom is False
-
-
-def test_invoke_no_function_error_is_not_oom():
-    oom_like_log = "signal: killed"
-    client = MagicMock()
-    client.invoke.return_value = _make_response(oom_like_log, function_error=None)
-    result = invoke(client, "my-fn")
-    assert result.is_oom is False
+    assert result.is_oom is expected_oom
+    assert result.function_error == function_error
 
 
 def test_invoke_warns_on_truncated_log(caplog):
@@ -132,20 +126,6 @@ def test_invoke_warns_on_truncated_log(caplog):
     with caplog.at_level(logging.WARNING, logger="lambdabench.invoker"):
         invoke(client, "my-fn")
     assert any("truncation" in m.lower() for m in caplog.messages)
-
-
-def test_invoke_exponential_backoff_delays():
-    client = MagicMock()
-    client.invoke.side_effect = [
-        _client_error("TooManyRequestsException"),
-        _client_error("TooManyRequestsException"),
-        _client_error("TooManyRequestsException"),
-        _make_response("ok"),
-    ]
-    with patch("lambdabench.invoker.time.sleep") as mock_sleep:
-        invoke(client, "my-fn")
-    delays = [c.args[0] for c in mock_sleep.call_args_list]
-    assert delays == [_BASE_DELAY * 1, _BASE_DELAY * 2, _BASE_DELAY * 4]
 
 
 # ---------------------------------------------------------------------------
@@ -159,28 +139,21 @@ def _resp(payload: bytes, log: str = "REPORT RequestId: x") -> dict:
     }
 
 
-def test_invoke_extracts_status_code():
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        (b'{"statusCode":200,"body":"ok"}', 200),
+        (b'{"statusCode":401,"body":"unauthorized"}', 401),
+        (b'{"result":"fine"}', None),
+        (b"not json at all", None),
+        (b'["a","list"]', None),
+        (b'{"statusCode":"200"}', None),
+    ],
+)
+def test_invoke_status_code_extraction(payload, expected):
     client = MagicMock()
-    client.invoke.return_value = _resp(b'{"statusCode":200,"body":"ok"}')
-    assert invoke(client, "my-fn").status_code == 200
-
-
-def test_invoke_extracts_non_200_status_code():
-    client = MagicMock()
-    client.invoke.return_value = _resp(b'{"statusCode":401,"body":"unauthorized"}')
-    assert invoke(client, "my-fn").status_code == 401
-
-
-def test_invoke_status_code_none_for_non_http_payload():
-    client = MagicMock()
-    client.invoke.return_value = _resp(b'{"result":"fine"}')
-    assert invoke(client, "my-fn").status_code is None
-
-
-def test_invoke_status_code_none_for_unparseable_payload():
-    client = MagicMock()
-    client.invoke.return_value = _resp(b"not json at all")
-    assert invoke(client, "my-fn").status_code is None
+    client.invoke.return_value = _resp(payload)
+    assert invoke(client, "my-fn").status_code == expected
 
 
 def test_invoke_passes_payload_to_client():
